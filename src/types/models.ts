@@ -1,4 +1,3 @@
-
 export type AccountType = 'checking' | 'savings' | 'investment';
 
 export interface Account {
@@ -55,4 +54,10 @@ export interface Card {
   limit?: number;
   closingDay?: number;
   dueDay?: number;
+}
+
+export interface MonthlyData {
+  month: string;
+  income: number;
+  expense: number;
 }
