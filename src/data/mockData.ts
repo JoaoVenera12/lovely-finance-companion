@@ -1,4 +1,3 @@
-
 import { Account, Transaction, Card, CategoryType } from "@/types/models";
 
 // Account Data
@@ -257,40 +256,13 @@ export const getCategoryExpenseData = (): Array<{ name: string; value: number }>
   }));
 };
 
-export const getMonthlyTransactionData = (): Array<{
-  month: string;
-  income: number;
-  expense: number;
-}> => {
-  const monthlyData: Record<string, { income: number; expense: number }> = {};
-  
-  // Initialize with last 6 months
-  const now = new Date();
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const monthName = d.toLocaleDateString('default', { month: 'short' });
-    monthlyData[monthKey] = { income: 0, expense: 0, month: monthName };
-  }
-  
-  // Fill in with transaction data
-  transactions.forEach(transaction => {
-    const date = new Date(transaction.date);
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    
-    if (monthlyData[monthKey]) {
-      if (transaction.type === 'income') {
-        monthlyData[monthKey].income += transaction.amount;
-      } else {
-        monthlyData[monthKey].expense += transaction.amount;
-      }
-    }
-  });
-  
-  // Convert to array format needed for charts
-  return Object.entries(monthlyData).map(([key, data]) => ({
-    month: data.month || key.split('-')[1],
-    income: data.income,
-    expense: data.expense
-  }));
+export const getMonthlyTransactionData = (): MonthlyData[] => {
+  return [
+    { month: "Jan", income: 5000, expense: 3500 },
+    { month: "Fev", income: 4800, expense: 3200 },
+    { month: "Mar", income: 5200, expense: 3800 },
+    { month: "Abr", income: 5100, expense: 3300 },
+    { month: "Mai", income: 5400, expense: 3600 },
+    { month: "Jun", income: 5300, expense: 3400 },
+  ];
 };

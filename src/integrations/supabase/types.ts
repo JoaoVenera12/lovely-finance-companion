@@ -9,7 +9,157 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      accounts: {
+        Row: {
+          balance: number
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+          type: Database["public"]["Enums"]["account_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          type: Database["public"]["Enums"]["account_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          type?: Database["public"]["Enums"]["account_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      cards: {
+        Row: {
+          account_id: string
+          closing_day: number | null
+          created_at: string
+          credit_limit: number | null
+          due_day: number | null
+          expiry_date: string
+          id: string
+          last_four_digits: string
+          name: string
+          type: Database["public"]["Enums"]["card_type"]
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          closing_day?: number | null
+          created_at?: string
+          credit_limit?: number | null
+          due_day?: number | null
+          expiry_date: string
+          id?: string
+          last_four_digits: string
+          name: string
+          type: Database["public"]["Enums"]["card_type"]
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          closing_day?: number | null
+          created_at?: string
+          credit_limit?: number | null
+          due_day?: number | null
+          expiry_date?: string
+          id?: string
+          last_four_digits?: string
+          name?: string
+          type?: Database["public"]["Enums"]["card_type"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cards_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          account_id: string
+          amount: number
+          category: Database["public"]["Enums"]["category_type"]
+          created_at: string
+          date: string
+          description: string
+          id: string
+          type: Database["public"]["Enums"]["transaction_type"]
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          category: Database["public"]["Enums"]["category_type"]
+          created_at?: string
+          date: string
+          description: string
+          id?: string
+          type: Database["public"]["Enums"]["transaction_type"]
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          category?: Database["public"]["Enums"]["category_type"]
+          created_at?: string
+          date?: string
+          description?: string
+          id?: string
+          type?: Database["public"]["Enums"]["transaction_type"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +168,20 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      account_type: "checking" | "savings" | "investment"
+      card_type: "credit" | "debit" | "both"
+      category_type:
+        | "food"
+        | "transport"
+        | "housing"
+        | "entertainment"
+        | "health"
+        | "education"
+        | "shopping"
+        | "salary"
+        | "investment"
+        | "other"
+      transaction_type: "income" | "expense"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +296,22 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      account_type: ["checking", "savings", "investment"],
+      card_type: ["credit", "debit", "both"],
+      category_type: [
+        "food",
+        "transport",
+        "housing",
+        "entertainment",
+        "health",
+        "education",
+        "shopping",
+        "salary",
+        "investment",
+        "other",
+      ],
+      transaction_type: ["income", "expense"],
+    },
   },
 } as const
