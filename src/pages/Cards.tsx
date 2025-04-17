@@ -1,7 +1,6 @@
 
 import MainLayout from "@/components/layout/MainLayout";
 import { useState } from "react";
-import { cards, accounts } from "@/data/mockData";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,11 +27,43 @@ import {
   Plus 
 } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery } from '@tanstack/react-query';
+import { fetchAccounts } from "@/utils/supabaseQueries";
+import { supabase } from "@/lib/supabase";
 
 const Cards = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<CardType | null>(null);
-  const [cardsData, setCardsData] = useState<CardType[]>(cards);
+  
+  // Use React Query to fetch cards
+  const { data: cards = [], isLoading: cardsLoading, refetch: refetchCards } = useQuery({
+    queryKey: ['cards'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cards')
+        .select('*')
+        .order('created_at');
+      
+      if (error) throw error;
+      return data.map(card => ({
+        id: card.id,
+        accountId: card.account_id,
+        name: card.name,
+        type: card.type,
+        lastFourDigits: card.last_four_digits,
+        expiryDate: card.expiry_date,
+        limit: card.credit_limit,
+        closingDay: card.closing_day,
+        dueDay: card.due_day
+      }));
+    }
+  });
+  
+  // Use React Query to fetch accounts
+  const { data: accounts = [], isLoading: accountsLoading } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: fetchAccounts
+  });
   
   // Form state
   const [cardName, setCardName] = useState("");
@@ -73,7 +104,7 @@ const Cards = () => {
     setIsDialogOpen(false);
   };
 
-  const handleSaveCard = () => {
+  const handleSaveCard = async () => {
     try {
       if (!cardName) {
         throw new Error("O nome do cartão é obrigatório");
@@ -91,9 +122,9 @@ const Cards = () => {
         throw new Error("Informe uma data de validade válida (MM/AA)");
       }
       
-      const parsedLimit = limit ? parseFloat(limit.replace(/[^\d,.-]/g, '').replace(',', '.')) : undefined;
-      const parsedClosingDay = closingDay ? parseInt(closingDay) : undefined;
-      const parsedDueDay = dueDay ? parseInt(dueDay) : undefined;
+      const parsedLimit = limit ? parseFloat(limit.replace(/[^\d,.-]/g, '').replace(',', '.')) : null;
+      const parsedClosingDay = closingDay ? parseInt(closingDay) : null;
+      const parsedDueDay = dueDay ? parseInt(dueDay) : null;
       
       if (cardType === "credit") {
         if (!parsedLimit || parsedLimit <= 0) {
@@ -109,52 +140,73 @@ const Cards = () => {
         }
       }
       
+      const user = (await supabase.auth.getUser()).data.user;
+      
+      if (!user) {
+        throw new Error("Usuário não autenticado");
+      }
+      
       if (editingCard) {
         // Update existing card
-        const updatedCards = cardsData.map(c => 
-          c.id === editingCard.id 
-            ? { 
-                ...c, 
-                name: cardName, 
-                type: cardType, 
-                lastFourDigits, 
-                expiryDate, 
-                accountId,
-                limit: parsedLimit,
-                closingDay: parsedClosingDay,
-                dueDay: parsedDueDay
-              }
-            : c
-        );
-        setCardsData(updatedCards);
+        const { error } = await supabase
+          .from('cards')
+          .update({
+            name: cardName,
+            type: cardType,
+            last_four_digits: lastFourDigits,
+            expiry_date: expiryDate,
+            account_id: accountId,
+            credit_limit: parsedLimit,
+            closing_day: parsedClosingDay,
+            due_day: parsedDueDay
+          })
+          .eq('id', editingCard.id);
+          
+        if (error) throw error;
         toast.success("Cartão atualizado com sucesso!");
       } else {
         // Create new card
-        const newCard: CardType = {
-          id: (cardsData.length + 1).toString(),
-          name: cardName,
-          type: cardType,
-          lastFourDigits,
-          expiryDate,
-          accountId,
-          limit: parsedLimit,
-          closingDay: parsedClosingDay,
-          dueDay: parsedDueDay
-        };
-        setCardsData([...cardsData, newCard]);
+        const { error } = await supabase
+          .from('cards')
+          .insert({
+            name: cardName,
+            type: cardType,
+            last_four_digits: lastFourDigits,
+            expiry_date: expiryDate,
+            account_id: accountId,
+            credit_limit: parsedLimit,
+            closing_day: parsedClosingDay,
+            due_day: parsedDueDay,
+            user_id: user.id
+          });
+          
+        if (error) throw error;
         toast.success("Cartão criado com sucesso!");
       }
       
+      // Refresh data
+      refetchCards();
       handleCloseDialog();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao salvar cartão");
     }
   };
 
-  const handleDeleteCard = (cardId: string) => {
-    const updatedCards = cardsData.filter(c => c.id !== cardId);
-    setCardsData(updatedCards);
-    toast.success("Cartão excluído com sucesso!");
+  const handleDeleteCard = async (cardId: string) => {
+    try {
+      const { error } = await supabase
+        .from('cards')
+        .delete()
+        .eq('id', cardId);
+        
+      if (error) throw error;
+      
+      // Refresh data
+      refetchCards();
+      toast.success("Cartão excluído com sucesso!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao excluir cartão");
+    }
   };
 
   const getAccountById = (id: string) => {
@@ -176,6 +228,8 @@ const Cards = () => {
     { value: "both", label: "Crédito e Débito" }
   ];
 
+  const isLoading = cardsLoading || accountsLoading;
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -186,70 +240,80 @@ const Cards = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {cardsData.map((card) => {
-            const account = getAccountById(card.accountId);
-            const isCredit = card.type === "credit" || card.type === "both";
-            const isDebit = card.type === "debit" || card.type === "both";
-            
-            return (
-              <div key={card.id} className="account-card group">
-                <div className="flex items-start justify-between">
-                  <div className="flex flex-col gap-1">
-                    <h3 className="font-semibold">{card.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {account?.name} • {getCardTypeLabel(card.type)}
-                    </p>
-                  </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8" 
-                      onClick={() => handleOpenDialog(card)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-destructive hover:text-destructive/90" 
-                      onClick={() => handleDeleteCard(card.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="relative mt-4 bg-primary/10 rounded-lg p-4 overflow-hidden">
-                  <div className="flex justify-between items-center mb-6">
-                    <CreditCard className="h-6 w-6 text-primary" />
-                    <span className="text-sm font-medium">{card.expiryDate}</span>
-                  </div>
-                  <div className="text-lg font-medium tracking-widest">
-                    •••• •••• •••• {card.lastFourDigits}
+        {isLoading ? (
+          <div className="flex justify-center items-center py-8">
+            <p className="text-muted-foreground">Carregando cartões...</p>
+          </div>
+        ) : cards.length === 0 ? (
+          <div className="flex justify-center items-center py-8">
+            <p className="text-muted-foreground">Nenhum cartão encontrado</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {cards.map((card) => {
+              const account = getAccountById(card.accountId);
+              const isCredit = card.type === "credit" || card.type === "both";
+              const isDebit = card.type === "debit" || card.type === "both";
+              
+              return (
+                <div key={card.id} className="account-card group">
+                  <div className="flex items-start justify-between">
+                    <div className="flex flex-col gap-1">
+                      <h3 className="font-semibold">{card.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {account?.name} • {getCardTypeLabel(card.type)}
+                      </p>
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8" 
+                        onClick={() => handleOpenDialog(card)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-destructive hover:text-destructive/90" 
+                        onClick={() => handleDeleteCard(card.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   
-                  {isCredit && card.limit && (
-                    <div className="mt-4 flex flex-col">
-                      <span className="text-xs text-muted-foreground">Limite:</span>
-                      <span className="font-medium">
-                        {parseFloat(card.limit.toString()).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                      </span>
+                  <div className="relative mt-4 bg-primary/10 rounded-lg p-4 overflow-hidden">
+                    <div className="flex justify-between items-center mb-6">
+                      <CreditCard className="h-6 w-6 text-primary" />
+                      <span className="text-sm font-medium">{card.expiryDate}</span>
                     </div>
-                  )}
-                  
-                  {isCredit && card.closingDay && card.dueDay && (
-                    <div className="mt-2 flex flex-col">
-                      <span className="text-xs text-muted-foreground">Fechamento/Vencimento:</span>
-                      <span className="font-medium">Dia {card.closingDay} / Dia {card.dueDay}</span>
+                    <div className="text-lg font-medium tracking-widest">
+                      •••• •••• •••• {card.lastFourDigits}
                     </div>
-                  )}
+                    
+                    {isCredit && card.limit && (
+                      <div className="mt-4 flex flex-col">
+                        <span className="text-xs text-muted-foreground">Limite:</span>
+                        <span className="font-medium">
+                          {parseFloat(card.limit.toString()).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {isCredit && card.closingDay && card.dueDay && (
+                      <div className="mt-2 flex flex-col">
+                        <span className="text-xs text-muted-foreground">Fechamento/Vencimento:</span>
+                        <span className="font-medium">Dia {card.closingDay} / Dia {card.dueDay}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Card Form Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>

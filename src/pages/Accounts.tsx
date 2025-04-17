@@ -1,7 +1,6 @@
 
 import MainLayout from "@/components/layout/MainLayout";
 import { AccountCard } from "@/components/accounts/AccountCard";
-import { accounts } from "@/data/mockData";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useState } from "react";
@@ -24,11 +23,19 @@ import {
 } from "@/components/ui/select";
 import { Account, AccountType } from "@/types/models";
 import { toast } from "sonner";
+import { useQuery } from '@tanstack/react-query';
+import { fetchAccounts } from "@/utils/supabaseQueries";
+import { supabase } from "@/lib/supabase";
 
 const Accounts = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
-  const [accountsData, setAccountsData] = useState<Account[]>(accounts);
+  
+  // Use React Query to fetch accounts
+  const { data: accounts = [], isLoading, refetch } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: fetchAccounts
+  });
   
   // Form state
   const [accountName, setAccountName] = useState("");
@@ -57,7 +64,7 @@ const Accounts = () => {
     setIsDialogOpen(false);
   };
 
-  const handleSaveAccount = () => {
+  const handleSaveAccount = async () => {
     try {
       const balance = parseFloat(accountBalance.replace(/[^\d,.-]/g, '').replace(',', '.'));
       
@@ -70,38 +77,58 @@ const Accounts = () => {
       }
       
       if (editingAccount) {
-        // Update existing account
-        const updatedAccounts = accountsData.map(acc => 
-          acc.id === editingAccount.id 
-            ? { ...acc, name: accountName, type: accountType, balance, color: accountColor }
-            : acc
-        );
-        setAccountsData(updatedAccounts);
+        // Update existing account in Supabase
+        const { error } = await supabase
+          .from('accounts')
+          .update({
+            name: accountName,
+            type: accountType,
+            balance,
+            color: accountColor
+          })
+          .eq('id', editingAccount.id);
+          
+        if (error) throw error;
         toast.success("Conta atualizada com sucesso!");
       } else {
-        // Create new account
-        const newAccount: Account = {
-          id: (accountsData.length + 1).toString(),
-          name: accountName,
-          type: accountType,
-          balance,
-          createdAt: new Date().toISOString(),
-          color: accountColor
-        };
-        setAccountsData([...accountsData, newAccount]);
+        // Create new account in Supabase
+        const { error } = await supabase
+          .from('accounts')
+          .insert({
+            name: accountName,
+            type: accountType,
+            balance,
+            color: accountColor,
+            user_id: (await supabase.auth.getUser()).data.user?.id || ''
+          });
+          
+        if (error) throw error;
         toast.success("Conta criada com sucesso!");
       }
       
+      // Refresh data
+      refetch();
       handleCloseDialog();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao salvar conta");
     }
   };
 
-  const handleDeleteAccount = (accountId: string) => {
-    const updatedAccounts = accountsData.filter(acc => acc.id !== accountId);
-    setAccountsData(updatedAccounts);
-    toast.success("Conta excluída com sucesso!");
+  const handleDeleteAccount = async (accountId: string) => {
+    try {
+      const { error } = await supabase
+        .from('accounts')
+        .delete()
+        .eq('id', accountId);
+        
+      if (error) throw error;
+      
+      // Refresh data
+      refetch();
+      toast.success("Conta excluída com sucesso!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao excluir conta");
+    }
   };
 
   const accountTypeOptions = [
@@ -120,16 +147,22 @@ const Accounts = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {accountsData.map((account) => (
-            <AccountCard 
-              key={account.id} 
-              account={account} 
-              onEdit={(acc) => handleOpenDialog(acc)} 
-              onDelete={handleDeleteAccount}
-            />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-8">
+            <p className="text-muted-foreground">Carregando contas...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {accounts.map((account) => (
+              <AccountCard 
+                key={account.id} 
+                account={account} 
+                onEdit={(acc) => handleOpenDialog(acc)} 
+                onDelete={handleDeleteAccount}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Account Form Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>

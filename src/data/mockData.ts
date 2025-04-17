@@ -1,5 +1,5 @@
 // This file will be deleted after migration
-import { Account, Transaction, Card, CategoryType } from '@/types/models';
+import { CategoryType } from '@/types/models';
 
 // Only keeping the helper function that might be useful
 export const getAccountTypeLabel = (type: string) => {

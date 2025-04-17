@@ -1,4 +1,3 @@
-
 import { supabase } from '@/lib/supabase';
 import { startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { Account, Transaction, Card } from '@/types/models';
@@ -61,18 +60,7 @@ export const fetchAllTransactions = async (): Promise<Transaction[]> => {
 };
 
 export const fetchCategoryColors = async (): Promise<Record<string, string>> => {
-  const { data: colors, error } = await supabase
-    .from('category_colors')
-    .select('category, color');
-    
-  if (error) throw error;
-
-  const colorMap: Record<string, string> = {};
-  colors?.forEach((item: any) => {
-    colorMap[item.category] = item.color;
-  });
-  
-  return colorMap;
+  return defaultCategoryColors;
 };
 
 export const calculateMonthlyIncomeExpense = async () => {
