@@ -1,10 +1,13 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { getMonthlyTransactionData } from "@/data/mockData";
+import { getMonthlyTransactionData } from "@/utils/supabaseQueries";
+import { useQuery } from '@tanstack/react-query';
 
 const MonthlyComparison = () => {
-  const data = getMonthlyTransactionData();
+  const { data = [] } = useQuery({
+    queryKey: ['monthlyTransactionData'],
+    queryFn: getMonthlyTransactionData
+  });
 
   const formatTooltipValue = (value: number) => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });

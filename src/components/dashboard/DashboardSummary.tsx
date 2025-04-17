@@ -1,17 +1,23 @@
-
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  CreditCard, 
-  Wallet 
-} from "lucide-react";
-import { calculateMonthlyIncomeExpense, calculateTotalBalance } from "@/data/mockData";
+import { TrendingUp, TrendingDown, CreditCard, Wallet } from "lucide-react";
+import { calculateMonthlyIncomeExpense, calculateTotalBalance } from "@/utils/supabaseQueries";
+import { useQuery } from '@tanstack/react-query';
 
 const DashboardSummary = () => {
-  const totalBalance = calculateTotalBalance();
-  const { income, expense } = calculateMonthlyIncomeExpense();
-  
+  const { data: totalBalance = 0 } = useQuery({
+    queryKey: ['totalBalance'],
+    queryFn: calculateTotalBalance
+  });
+
+  const { data: monthlyData } = useQuery({
+    queryKey: ['monthlyIncomeExpense'],
+    queryFn: calculateMonthlyIncomeExpense,
+    initialData: { income: 0, expense: 0 }
+  });
+
+  const { income, expense } = monthlyData;
+
   const summaryItems = [
     {
       title: "Saldo Total",

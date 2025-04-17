@@ -1,14 +1,20 @@
-
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { accounts } from "@/data/mockData";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { AccountCard } from "@/components/accounts/AccountCard";
+import { useQuery } from '@tanstack/react-query';
+import { fetchAccounts } from "@/utils/supabaseQueries";
 
 const AccountOverview = () => {
   const navigate = useNavigate();
-  const visibleAccounts = accounts.slice(0, 3); // Only show the first 3
+  
+  const { data: accounts = [] } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: fetchAccounts
+  });
+
+  const visibleAccounts = accounts.slice(0, 3);
 
   return (
     <Card className="shadow-sm">

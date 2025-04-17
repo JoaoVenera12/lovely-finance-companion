@@ -1,10 +1,20 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
-import { getCategoryExpenseData, categoryColors } from "@/data/mockData";
+import { getCategoryExpenseData, fetchCategoryColors } from "@/utils/supabaseQueries";
+import { useQuery } from '@tanstack/react-query';
 
 const ExpenseByCategory = () => {
-  const data = getCategoryExpenseData();
+  const { data: categoryExpenses = [] } = useQuery({
+    queryKey: ['categoryExpenses'],
+    queryFn: getCategoryExpenseData
+  });
+
+  const { data: categoryColors = {} } = useQuery({
+    queryKey: ['categoryColors'],
+    queryFn: fetchCategoryColors
+  });
+
+  const data = categoryExpenses;
   
   // Format data for the chart
   const chartData = data.map(item => ({
