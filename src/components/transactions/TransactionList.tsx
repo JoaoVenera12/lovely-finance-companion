@@ -8,7 +8,6 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { getAccountById, categoryColors } from "@/data/mockData";
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +16,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Edit, MoreVertical, Trash2 } from "lucide-react";
+import { useQuery } from '@tanstack/react-query';
+import { fetchAccountById, fetchCategoryColors } from "@/utils/supabaseQueries";
+import { defaultCategoryColors } from "@/utils/dataMappers";
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -25,6 +27,11 @@ interface TransactionListProps {
 }
 
 const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProps) => {
+  const { data: categoryColors = defaultCategoryColors } = useQuery({
+    queryKey: ['categoryColors'],
+    queryFn: fetchCategoryColors
+  });
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
@@ -54,9 +61,14 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
           </TableRow>
         ) : (
           transactions.map((transaction) => {
-            const account = getAccountById(transaction.accountId);
             const isIncome = transaction.type === 'income';
             const categoryColor = categoryColors[transaction.category] || '#888';
+            
+            // Use React Query to fetch the account
+            const { data: account } = useQuery({
+              queryKey: ['account', transaction.accountId],
+              queryFn: () => fetchAccountById(transaction.accountId)
+            });
             
             return (
               <TableRow key={transaction.id}>
@@ -71,7 +83,7 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
                     {getCategoryLabel(transaction.category)}
                   </div>
                 </TableCell>
-                <TableCell>{account?.name}</TableCell>
+                <TableCell>{account?.name || 'Carregando...'}</TableCell>
                 <TableCell className={`text-right font-medium ${isIncome ? 'text-finance-income' : 'text-finance-expense'}`}>
                   {isIncome ? '+' : '-'} {transaction.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </TableCell>

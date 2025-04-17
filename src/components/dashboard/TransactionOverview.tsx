@@ -1,13 +1,27 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { transactions, getAccountById, categoryColors } from "@/data/mockData";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { Transaction } from "@/types/models";
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllTransactions, fetchAccountById, fetchCategoryColors } from "@/utils/supabaseQueries";
+import { defaultCategoryColors } from "@/utils/dataMappers";
 
 const TransactionOverview = () => {
   const navigate = useNavigate();
+  
+  const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
+    queryKey: ['recentTransactions'],
+    queryFn: fetchAllTransactions
+  });
+
+  const { data: categoryColors = defaultCategoryColors } = useQuery({
+    queryKey: ['categoryColors'],
+    queryFn: fetchCategoryColors
+  });
+
+  // Only show the 5 most recent transactions
   const recentTransactions = transactions
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5);
@@ -17,12 +31,17 @@ const TransactionOverview = () => {
   };
 
   const renderTransactionItem = (transaction: Transaction) => {
-    const account = getAccountById(transaction.accountId);
+    // Use React Query for individual account fetching
+    const { data: account } = useQuery({
+      queryKey: ['account', transaction.accountId],
+      queryFn: () => fetchAccountById(transaction.accountId)
+    });
+    
     const isIncome = transaction.type === 'income';
     const categoryColor = categoryColors[transaction.category] || '#888';
 
     return (
-      <div key={transaction.id} className="transaction-item">
+      <div key={transaction.id} className="transaction-item py-3 px-4 flex items-center justify-between border-b last:border-0">
         <div className="flex items-center gap-4">
           <div 
             className="w-10 h-10 rounded-full flex items-center justify-center"
@@ -33,7 +52,7 @@ const TransactionOverview = () => {
           <div>
             <p className="font-medium">{transaction.description}</p>
             <p className="text-sm text-muted-foreground">
-              {account?.name} • {formatDate(transaction.date)}
+              {account?.name || 'Carregando...'} • {formatDate(transaction.date)}
             </p>
           </div>
         </div>
@@ -61,9 +80,19 @@ const TransactionOverview = () => {
         </Button>
       </CardHeader>
       <CardContent>
-        <div className="space-y-0">
-          {recentTransactions.map(renderTransactionItem)}
-        </div>
+        {transactionsLoading ? (
+          <div className="flex justify-center items-center py-8">
+            <p className="text-muted-foreground">Carregando transações...</p>
+          </div>
+        ) : recentTransactions.length === 0 ? (
+          <div className="flex justify-center items-center py-8">
+            <p className="text-muted-foreground">Nenhuma transação encontrada</p>
+          </div>
+        ) : (
+          <div className="space-y-0">
+            {recentTransactions.map(renderTransactionItem)}
+          </div>
+        )}
         <Button
           variant="link"
           className="mt-4 w-full"

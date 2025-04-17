@@ -1,7 +1,6 @@
 
 import MainLayout from "@/components/layout/MainLayout";
 import TransactionList from "@/components/transactions/TransactionList";
-import { transactions, accounts, categoryColors } from "@/data/mockData";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Plus } from "lucide-react";
@@ -33,11 +32,40 @@ import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllTransactions, fetchCategoryColors } from "@/utils/supabaseQueries";
+import { defaultCategoryColors } from "@/utils/dataMappers";
+import { supabase } from "@/lib/supabase";
 
 const Transactions = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [transactionsData, setTransactionsData] = useState<Transaction[]>(transactions);
+  
+  // React Query for transactions
+  const { data: transactions = [], isLoading, refetch } = useQuery({
+    queryKey: ['allTransactions'],
+    queryFn: fetchAllTransactions
+  });
+
+  // React Query for category colors
+  const { data: categoryColors = defaultCategoryColors } = useQuery({
+    queryKey: ['categoryColors'],
+    queryFn: fetchCategoryColors
+  });
+  
+  // React Query for accounts
+  const { data: accounts = [] } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('accounts')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+      return data;
+    }
+  });
   
   // Form state
   const [description, setDescription] = useState("");
@@ -72,7 +100,7 @@ const Transactions = () => {
     setIsDialogOpen(false);
   };
 
-  const handleSaveTransaction = () => {
+  const handleSaveTransaction = async () => {
     try {
       const parsedAmount = parseFloat(amount.replace(/[^\d,.-]/g, '').replace(',', '.'));
       
@@ -89,48 +117,61 @@ const Transactions = () => {
       }
       
       if (editingTransaction) {
-        // Update existing transaction
-        const updatedTransactions = transactionsData.map(trans => 
-          trans.id === editingTransaction.id 
-            ? { 
-                ...trans, 
-                description, 
-                amount: parsedAmount, 
-                type, 
-                category, 
-                accountId, 
-                date: date.toISOString().split('T')[0] 
-              }
-            : trans
-        );
-        setTransactionsData(updatedTransactions);
+        // Update existing transaction in Supabase
+        const { error } = await supabase
+          .from('transactions')
+          .update({
+            description,
+            amount: parsedAmount,
+            type,
+            category,
+            account_id: accountId,
+            date: date.toISOString(),
+          })
+          .eq('id', editingTransaction.id);
+        
+        if (error) throw error;
         toast.success("Transação atualizada com sucesso!");
       } else {
-        // Create new transaction
-        const newTransaction: Transaction = {
-          id: (transactionsData.length + 1).toString(),
-          description,
-          amount: parsedAmount,
-          type,
-          category,
-          accountId,
-          date: date.toISOString().split('T')[0],
-          createdAt: new Date().toISOString()
-        };
-        setTransactionsData([...transactionsData, newTransaction]);
+        // Create new transaction in Supabase
+        const { error } = await supabase
+          .from('transactions')
+          .insert({
+            description,
+            amount: parsedAmount,
+            type,
+            category,
+            account_id: accountId,
+            date: date.toISOString(),
+          });
+        
+        if (error) throw error;
         toast.success("Transação criada com sucesso!");
       }
       
+      // Refetch transactions to update the list
+      refetch();
       handleCloseDialog();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao salvar transação");
     }
   };
 
-  const handleDeleteTransaction = (transactionId: string) => {
-    const updatedTransactions = transactionsData.filter(trans => trans.id !== transactionId);
-    setTransactionsData(updatedTransactions);
-    toast.success("Transação excluída com sucesso!");
+  const handleDeleteTransaction = async (transactionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', transactionId);
+      
+      if (error) throw error;
+      
+      // Refetch transactions to update the list
+      refetch();
+      toast.success("Transação excluída com sucesso!");
+    } catch (error) {
+      toast.error("Erro ao excluir transação");
+    }
   };
 
   const transactionTypeOptions = [
@@ -161,11 +202,17 @@ const Transactions = () => {
           </Button>
         </div>
 
-        <TransactionList 
-          transactions={transactionsData} 
-          onEdit={(trans) => handleOpenDialog(trans)} 
-          onDelete={handleDeleteTransaction}
-        />
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <p className="text-muted-foreground">Carregando transações...</p>
+          </div>
+        ) : (
+          <TransactionList 
+            transactions={transactions} 
+            onEdit={(trans) => handleOpenDialog(trans)} 
+            onDelete={handleDeleteTransaction}
+          />
+        )}
 
         {/* Transaction Form Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>

@@ -2,7 +2,8 @@ import {
   Account, 
   Transaction, 
   Card, 
-  MonthlyData 
+  MonthlyData,
+  CategoryType
 } from '@/types/models';
 
 // Account constants
@@ -216,3 +217,30 @@ export const monthlyData: MonthlyData[] = [
   { month: 'Nov', income: 6200, expense: 4100 },
   { month: 'Dec', income: 6500, expense: 4300 },
 ];
+
+// Category colors for visualization
+export const categoryColors: Record<CategoryType, string> = {
+  food: '#FF6B6B',
+  transport: '#4ECDC4',
+  housing: '#45B7D1',
+  entertainment: '#96CEB4',
+  health: '#FF7F50',
+  education: '#9B59B6',
+  shopping: '#3498DB',
+  salary: '#2ECC71',
+  investment: '#F1C40F',
+  other: '#95A5A6'
+};
+
+// Helper functions
+export const getAccountById = (id: string): Account | undefined => {
+  return accounts.find(account => account.id === id);
+};
+
+export const getTransactionsByAccountId = (accountId: string): Transaction[] => {
+  return transactions.filter(transaction => transaction.accountId === accountId);
+};
+
+export const getCardsByAccountId = (accountId: string): Card[] => {
+  return cards.filter(card => card.accountId === accountId);
+};

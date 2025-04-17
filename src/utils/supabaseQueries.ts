@@ -1,29 +1,35 @@
 
 import { supabase } from '@/lib/supabase';
 import { startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { Account, Transaction, Card } from '@/types/models';
+import { mapDbAccountToAccount, mapDbTransactionToTransaction, mapDbCardToCard, defaultCategoryColors } from './dataMappers';
 
-export const fetchAccounts = async () => {
+export const fetchAccounts = async (): Promise<Account[]> => {
   const { data: accounts, error } = await supabase
     .from('accounts')
     .select('*')
     .order('created_at');
     
   if (error) throw error;
-  return accounts;
+  return accounts.map(mapDbAccountToAccount);
 };
 
-export const fetchAccountById = async (id: string) => {
+export const fetchAccountById = async (id: string): Promise<Account | null> => {
   const { data: account, error } = await supabase
     .from('accounts')
     .select('*')
     .eq('id', id)
     .single();
     
-  if (error) throw error;
-  return account;
+  if (error) {
+    if (error.code === 'PGRST116') return null; // No rows returned
+    throw error;
+  }
+  
+  return account ? mapDbAccountToAccount(account) : null;
 };
 
-export const fetchTransactionsByAccountId = async (accountId: string) => {
+export const fetchTransactionsByAccountId = async (accountId: string): Promise<Transaction[]> => {
   const { data: transactions, error } = await supabase
     .from('transactions')
     .select('*')
@@ -31,30 +37,31 @@ export const fetchTransactionsByAccountId = async (accountId: string) => {
     .order('date', { ascending: false });
     
   if (error) throw error;
-  return transactions;
+  return transactions.map(mapDbTransactionToTransaction);
 };
 
-export const fetchCardsByAccountId = async (accountId: string) => {
+export const fetchCardsByAccountId = async (accountId: string): Promise<Card[]> => {
   const { data: cards, error } = await supabase
     .from('cards')
     .select('*')
     .eq('account_id', accountId);
     
   if (error) throw error;
-  return cards;
+  return cards.map(mapDbCardToCard);
 };
 
-export const fetchAllTransactions = async () => {
+export const fetchAllTransactions = async (): Promise<Transaction[]> => {
   const { data: transactions, error } = await supabase
     .from('transactions')
     .select('*')
     .order('date', { ascending: false });
     
   if (error) throw error;
-  return transactions;
+  return transactions.map(mapDbTransactionToTransaction);
 };
 
-export const fetchCategoryColors = async () => {
+export const fetchCategoryColors = async (): Promise<Record<string, string>> => {
+  // This table was created in our SQL migration
   const { data: colors, error } = await supabase
     .from('category_colors')
     .select('*');
@@ -62,7 +69,7 @@ export const fetchCategoryColors = async () => {
   if (error) throw error;
 
   const colorMap: Record<string, string> = {};
-  colors.forEach(item => {
+  colors?.forEach((item: any) => {
     colorMap[item.category] = item.color;
   });
   
@@ -129,7 +136,7 @@ export const getCategoryExpenseData = async () => {
 };
 
 export const getMonthlyTransactionData = async () => {
-  const last12Months = Array.from({ length: 12 }, (_, i) => {
+  const last6Months = Array.from({ length: 6 }, (_, i) => {
     const date = subMonths(new Date(), i);
     return {
       startDate: startOfMonth(date),
@@ -141,12 +148,12 @@ export const getMonthlyTransactionData = async () => {
   const { data: transactions, error } = await supabase
     .from('transactions')
     .select('*')
-    .gte('date', last12Months[0].startDate.toISOString())
-    .lte('date', last12Months[11].endDate.toISOString());
+    .gte('date', last6Months[0].startDate.toISOString())
+    .lte('date', last6Months[5].endDate.toISOString());
 
   if (error) throw error;
 
-  return last12Months.map(({ startDate, endDate, month }) => {
+  return last6Months.map(({ startDate, endDate, month }) => {
     const monthTransactions = transactions.filter(t => {
       const date = new Date(t.date);
       return date >= startDate && date <= endDate;

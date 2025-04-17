@@ -1,20 +1,45 @@
 
 import { useParams, useNavigate } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
-import { getAccountById, getTransactionsByAccountId, getCardsByAccountId } from "@/data/mockData";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Plus, CreditCard } from "lucide-react";
 import TransactionList from "@/components/transactions/TransactionList";
+import { useQuery } from '@tanstack/react-query';
+import { fetchAccountById, fetchTransactionsByAccountId, fetchCardsByAccountId } from "@/utils/supabaseQueries";
 
 const AccountDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   
-  const account = getAccountById(id || "");
-  const transactions = getTransactionsByAccountId(id || "");
-  const cards = getCardsByAccountId(id || "");
+  const { data: account, isLoading: accountLoading } = useQuery({
+    queryKey: ['account', id],
+    queryFn: () => fetchAccountById(id || ""),
+    enabled: !!id
+  });
+
+  const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
+    queryKey: ['transactions', id],
+    queryFn: () => fetchTransactionsByAccountId(id || ""),
+    enabled: !!id
+  });
+
+  const { data: cards = [], isLoading: cardsLoading } = useQuery({
+    queryKey: ['cards', id],
+    queryFn: () => fetchCardsByAccountId(id || ""),
+    enabled: !!id
+  });
   
+  if (accountLoading) {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center h-[50vh]">
+          <p className="text-muted-foreground">Carregando detalhes da conta...</p>
+        </div>
+      </MainLayout>
+    );
+  }
+
   if (!account) {
     return (
       <MainLayout>
@@ -94,7 +119,11 @@ const AccountDetail = () => {
               </Button>
             </CardHeader>
             <CardContent>
-              {cards.length === 0 ? (
+              {cardsLoading ? (
+                <div className="flex justify-center items-center py-8">
+                  <p className="text-muted-foreground">Carregando cartões...</p>
+                </div>
+              ) : cards.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <CreditCard className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">Nenhum cartão vinculado a esta conta.</p>
@@ -146,7 +175,13 @@ const AccountDetail = () => {
             </Button>
           </CardHeader>
           <CardContent>
-            <TransactionList transactions={transactions} />
+            {transactionsLoading ? (
+              <div className="flex justify-center items-center py-8">
+                <p className="text-muted-foreground">Carregando transações...</p>
+              </div>
+            ) : (
+              <TransactionList transactions={transactions} />
+            )}
           </CardContent>
         </Card>
       </div>
