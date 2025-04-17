@@ -61,10 +61,9 @@ export const fetchAllTransactions = async (): Promise<Transaction[]> => {
 };
 
 export const fetchCategoryColors = async (): Promise<Record<string, string>> => {
-  // This table was created in our SQL migration
   const { data: colors, error } = await supabase
     .from('category_colors')
-    .select('*');
+    .select('category, color');
     
   if (error) throw error;
 

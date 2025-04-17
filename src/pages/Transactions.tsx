@@ -115,6 +115,12 @@ const Transactions = () => {
       if (!accountId) {
         throw new Error("Selecione uma conta");
       }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("Usuário não autenticado");
+      }
       
       if (editingTransaction) {
         // Update existing transaction in Supabase
@@ -143,6 +149,7 @@ const Transactions = () => {
             category,
             account_id: accountId,
             date: date.toISOString(),
+            user_id: user.id
           });
         
         if (error) throw error;
