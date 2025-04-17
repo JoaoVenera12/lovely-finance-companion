@@ -16,11 +16,15 @@ import {
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth"; // Import useAuth
+import { useToast } from "@/components/ui/use-toast"; // Import toast for error handling
 
 const Sidebar = () => {
   const location = useLocation();
   const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(false);
+  const { signOut } = useAuth(); // Destructure signOut from useAuth
+  const { toast } = useToast(); // Get toast for error handling
 
   const navItems = [
     { name: "Dashboard", path: "/", icon: <Home size={20} /> },
@@ -32,6 +36,22 @@ const Sidebar = () => {
   ];
 
   const toggleSidebar = () => setIsOpen(!isOpen);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Desconectado",
+        description: "Você foi desconectado com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao sair",
+        description: "Não foi possível sair. Por favor, tente novamente.",
+      });
+    }
+  };
 
   return (
     <>
@@ -94,10 +114,14 @@ const Sidebar = () => {
         </nav>
 
         <div className="p-4 border-t border-sidebar-border">
-          <button className="flex items-center gap-3 text-sidebar-foreground hover:text-sidebar-accent-foreground w-full px-4 py-2 rounded-md transition-colors">
+          <Button 
+            onClick={handleSignOut} 
+            variant="ghost" 
+            className="flex items-center gap-3 text-sidebar-foreground hover:text-sidebar-accent-foreground w-full px-4 py-2 rounded-md transition-colors"
+          >
             <LogOut size={20} />
             <span>Sair</span>
-          </button>
+          </Button>
         </div>
       </aside>
     </>
