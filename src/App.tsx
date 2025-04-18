@@ -10,6 +10,7 @@ import Accounts from "./pages/Accounts";
 import Cards from "./pages/Cards";
 import Transactions from "./pages/Transactions";
 import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
 import AccountDetail from "./pages/AccountDetail";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/cards" element={<Cards />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

@@ -60,10 +60,16 @@ const Cards = () => {
   });
   
   // Use React Query to fetch accounts
-  const { data: accounts = [], isLoading: accountsLoading } = useQuery({
+  const { data: accountsArray = [], isLoading: accountsLoading } = useQuery({
     queryKey: ['accounts'],
     queryFn: fetchAccounts
   });
+
+  // Convert accounts array to object for efficient lookups
+  const accounts = accountsArray.reduce((acc, account) => {
+    acc[account.id] = account;
+    return acc;
+  }, {} as Record<string, any>);
   
   // Form state
   const [cardName, setCardName] = useState("");
@@ -92,7 +98,7 @@ const Cards = () => {
       setCardType("credit");
       setLastFourDigits("");
       setExpiryDate("");
-      setAccountId(accounts.length > 0 ? accounts[0].id : "");
+      setAccountId(accountsArray.length > 0 ? accountsArray[0].id : "");
       setLimit("");
       setClosingDay("");
       setDueDay("");
@@ -210,7 +216,7 @@ const Cards = () => {
   };
 
   const getAccountById = (id: string) => {
-    return accounts.find(account => account.id === id);
+    return accounts[id];
   };
 
   const getCardTypeLabel = (type: CardTypeEnum) => {
@@ -261,7 +267,7 @@ const Cards = () => {
                     <div className="flex flex-col gap-1">
                       <h3 className="font-semibold">{card.name}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {account?.name} • {getCardTypeLabel(card.type)}
+                        {accounts[card.accountId]?.name} • {getCardTypeLabel(card.type)}
                       </p>
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -368,7 +374,7 @@ const Cards = () => {
                     <SelectValue placeholder="Selecione a conta" />
                   </SelectTrigger>
                   <SelectContent>
-                    {accounts.map((account) => (
+                    {accountsArray.map((account) => (
                       <SelectItem key={account.id} value={account.id}>
                         {account.name}
                       </SelectItem>

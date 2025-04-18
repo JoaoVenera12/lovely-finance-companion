@@ -4,19 +4,46 @@ import { Account, Transaction, Card } from '@/types/models';
 import { mapDbAccountToAccount, mapDbTransactionToTransaction, mapDbCardToCard, defaultCategoryColors } from './dataMappers';
 
 export const fetchAccounts = async (): Promise<Account[]> => {
-  const { data: accounts, error } = await supabase
+  // Fetch accounts and their transactions
+  const { data: accounts, error: accountsError } = await supabase
     .from('accounts')
-    .select('*')
-    .order('created_at');
+    .select('*, transactions(*)');
+
+  if (accountsError) throw accountsError;
+
+  // Calculate current balance for each account
+  const updatedAccounts = accounts.map(account => {
+    const initialBalance = Number(account.balance) || 0;
+    const transactions = account.transactions || [];
     
-  if (error) throw error;
-  return accounts.map(mapDbAccountToAccount);
+    const transactionTotal = transactions.reduce((sum, transaction) => {
+      const amount = Number(transaction.amount) || 0;
+      return transaction.type === 'income' ? sum + amount : sum - amount;
+    }, 0);
+
+    // Update the account balance in the database
+    const currentBalance = initialBalance + transactionTotal;
+    supabase
+      .from('accounts')
+      .update({ balance: currentBalance })
+      .eq('id', account.id)
+      .then(({ error }) => {
+        if (error) console.error('Error updating account balance:', error);
+      });
+
+    return {
+      ...account,
+      balance: currentBalance
+    };
+  });
+
+  return updatedAccounts.map(mapDbAccountToAccount);
 };
 
 export const fetchAccountById = async (id: string): Promise<Account | null> => {
   const { data: account, error } = await supabase
     .from('accounts')
-    .select('*')
+    .select('*, transactions(*)')
     .eq('id', id)
     .single();
     
@@ -24,8 +51,33 @@ export const fetchAccountById = async (id: string): Promise<Account | null> => {
     if (error.code === 'PGRST116') return null; // No rows returned
     throw error;
   }
+
+  if (!account) return null;
+
+  // Calculate current balance including transactions
+  const initialBalance = Number(account.balance) || 0;
+  const transactions = account.transactions || [];
   
-  return account ? mapDbAccountToAccount(account) : null;
+  const transactionTotal = transactions.reduce((sum, transaction) => {
+    const amount = Number(transaction.amount) || 0;
+    return transaction.type === 'income' ? sum + amount : sum - amount;
+  }, 0);
+
+  const currentBalance = initialBalance + transactionTotal;
+
+  // Update the account balance in the database
+  supabase
+    .from('accounts')
+    .update({ balance: currentBalance })
+    .eq('id', id)
+    .then(({ error }) => {
+      if (error) console.error('Error updating account balance:', error);
+    });
+
+  return mapDbAccountToAccount({
+    ...account,
+    balance: currentBalance
+  });
 };
 
 export const fetchTransactionsByAccountId = async (accountId: string): Promise<Transaction[]> => {
@@ -90,11 +142,21 @@ export const calculateMonthlyIncomeExpense = async () => {
 export const calculateTotalBalance = async () => {
   const { data: accounts, error } = await supabase
     .from('accounts')
-    .select('balance');
+    .select('*, transactions(*)');
 
   if (error) throw error;
-  
-  return accounts.reduce((sum, account) => sum + Number(account.balance), 0);
+
+  return accounts.reduce((sum, account) => {
+    const initialBalance = Number(account.balance) || 0;
+    const transactions = account.transactions || [];
+    
+    const transactionTotal = transactions.reduce((transSum, transaction) => {
+      const amount = Number(transaction.amount) || 0;
+      return transaction.type === 'income' ? transSum + amount : transSum - amount;
+    }, 0);
+
+    return sum + initialBalance + transactionTotal;
+  }, 0);
 };
 
 export const getCategoryExpenseData = async () => {

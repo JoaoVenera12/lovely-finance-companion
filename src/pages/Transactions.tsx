@@ -54,7 +54,7 @@ const Transactions = () => {
   });
   
   // React Query for accounts
-  const { data: accounts = [] } = useQuery({
+  const { data: accountsArray = [] } = useQuery({
     queryKey: ['accounts'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -66,7 +66,15 @@ const Transactions = () => {
       return data;
     }
   });
-  
+
+  // Convert accounts array to object for efficient lookups
+  const accounts = Array.isArray(accountsArray) 
+    ? accountsArray.reduce((acc, account) => {
+        acc[account.id] = account;
+        return acc;
+      }, {} as Record<string, any>)
+    : {};
+
   // Form state
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
@@ -90,7 +98,7 @@ const Transactions = () => {
       setAmount("");
       setType("expense");
       setCategory("other");
-      setAccountId(accounts.length > 0 ? accounts[0].id : "");
+      setAccountId(Array.isArray(accountsArray) && accountsArray.length > 0 ? accountsArray[0].id : "");
       setDate(new Date());
     }
     setIsDialogOpen(true);
@@ -308,15 +316,15 @@ const Transactions = () => {
                   <SelectTrigger id="account">
                     <SelectValue placeholder="Selecione a conta" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {accounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                <SelectContent>
+                  {Array.isArray(accountsArray) ? accountsArray.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  )) : null}
+                </SelectContent>
+              </Select>
+            </div>
               
               <div className="grid gap-2">
                 <Label htmlFor="date">Data</Label>

@@ -11,34 +11,45 @@ import { defaultCategoryColors } from "@/utils/dataMappers";
 const TransactionOverview = () => {
   const navigate = useNavigate();
   
+  // Fetch all transactions
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
     queryKey: ['recentTransactions'],
     queryFn: fetchAllTransactions
   });
 
+  // Get the 5 most recent transactions
+  const recentTransactions = transactions
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 5);
+
+  // Fetch category colors
   const { data: categoryColors = defaultCategoryColors } = useQuery({
     queryKey: ['categoryColors'],
     queryFn: fetchCategoryColors
   });
 
-  // Only show the 5 most recent transactions
-  const recentTransactions = transactions
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5);
+  // Fetch all accounts data at once
+  const { data: accounts = {} } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: async () => {
+      if (recentTransactions.length === 0) return {};
+      const accountIds = [...new Set(recentTransactions.map(t => t.accountId))];
+      const accountsData = await Promise.all(accountIds.map(fetchAccountById));
+      return accountsData.reduce((acc, account) => {
+        if (account) acc[account.id] = account;
+        return acc;
+      }, {} as Record<string, any>);
+    }
+  });
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
   const renderTransactionItem = (transaction: Transaction) => {
-    // Use React Query for individual account fetching
-    const { data: account } = useQuery({
-      queryKey: ['account', transaction.accountId],
-      queryFn: () => fetchAccountById(transaction.accountId)
-    });
-    
     const isIncome = transaction.type === 'income';
     const categoryColor = categoryColors[transaction.category] || '#888';
+    const account = accounts[transaction.accountId];
 
     return (
       <div key={transaction.id} className="transaction-item py-3 px-4 flex items-center justify-between border-b last:border-0">

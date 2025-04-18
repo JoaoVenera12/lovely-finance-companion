@@ -27,9 +27,24 @@ interface TransactionListProps {
 }
 
 const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProps) => {
+  // Fetch all category colors
   const { data: categoryColors = defaultCategoryColors } = useQuery({
     queryKey: ['categoryColors'],
     queryFn: fetchCategoryColors
+  });
+
+  // Fetch all accounts data at once
+  const { data: accounts = {} } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: async () => {
+      const accountIds = [...new Set(transactions.map(t => t.accountId))];
+      const accountsData = await Promise.all(accountIds.map(fetchAccountById));
+      return accountsData.reduce((acc, account) => {
+        if (account) acc[account.id] = account;
+        return acc;
+      }, {} as Record<string, any>);
+    },
+    enabled: transactions.length > 0
   });
 
   const formatDate = (dateString: string) => {
@@ -64,11 +79,7 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
             const isIncome = transaction.type === 'income';
             const categoryColor = categoryColors[transaction.category] || '#888';
             
-            // Use React Query to fetch the account
-            const { data: account } = useQuery({
-              queryKey: ['account', transaction.accountId],
-              queryFn: () => fetchAccountById(transaction.accountId)
-            });
+            const account = accounts[transaction.accountId];
             
             return (
               <TableRow key={transaction.id}>
